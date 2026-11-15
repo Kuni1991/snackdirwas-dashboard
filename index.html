@@ -146,6 +146,26 @@ h1{font-family:var(--display);font-weight:800;font-size:clamp(2.6rem,11vw,4rem);
 .krow .kt{font-weight:600} .krow .kd{color:var(--muted);font-size:.86rem;margin-top:3px}
 .krow .kv{font-family:var(--display);font-weight:700;font-size:1.25rem;white-space:nowrap}
 .tab{font-size:.95rem}
+.voice{display:grid;gap:10px}
+.mic{display:flex;align-items:center;gap:14px;width:100%;padding:14px 16px;border-radius:14px;background:var(--signal);color:var(--signal-ink);
+  border:2px solid var(--ink);text-align:left;font:inherit;cursor:pointer}
+.mic b{display:block;font:700 18px/1.2 Figtree,system-ui,sans-serif}
+.mic small{display:block;font-size:12.5px;opacity:.85;margin-top:2px}
+.mic-dot{display:grid;place-items:center;flex:none;width:52px;height:52px;border-radius:50%;background:var(--ink);font-size:24px}
+.mic[aria-pressed="true"]{background:var(--crit);color:#fff}
+.mic[aria-pressed="true"] .mic-dot{animation:pulse 1.2s ease-in-out infinite}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(255,255,255,.7)}50%{box-shadow:0 0 0 10px rgba(255,255,255,0)}}
+@media (prefers-reduced-motion:reduce){.mic[aria-pressed="true"] .mic-dot{animation:none}}
+.vbox{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px;display:grid;gap:8px}
+.vbox label{font-weight:600;font-size:.9rem}
+.vbox textarea,.vbox input{font:500 17px/1.35 Figtree,system-ui,sans-serif;padding:10px;border:2px solid var(--ink);border-radius:10px;background:var(--bg);color:var(--ink);width:100%;resize:vertical}
+.vrow{display:flex;gap:8px;margin-top:4px}
+.vsend{flex:1;font:700 17px/1 Figtree,system-ui,sans-serif;padding:14px;border-radius:10px;border:0;background:var(--ink);color:var(--bg)}
+.vsend:disabled{opacity:.5}
+.vcancel{font:600 15px/1 Figtree,system-ui,sans-serif;padding:14px;border-radius:10px;border:1px solid var(--line);background:none;color:var(--ink)}
+.vmsg{font-weight:600;min-height:1.2em}
+.vmsg.ok{color:var(--good)} .vmsg.err{color:var(--crit)}
+.vform{font-size:.85rem;color:var(--link)}
 .foot{color:var(--muted);font-size:12.5px;text-align:center;padding:8px 0 20px}
 .foot button{background:none;border:0;color:var(--link);font:inherit;text-decoration:underline;padding:0}
 </style>
@@ -171,9 +191,24 @@ h1{font-family:var(--display);font-weight:800;font-size:clamp(2.6rem,11vw,4rem);
     <div class="err" id="pin-err" role="alert"></div>
   </section>
 
-  <a class="cta" id="cta" href="https://docs.google.com/forms/d/e/1FAIpQLSdyv8eSRf5cG0c4MoMQnV408WldEN538lE_WSrCdPCyiw8Z2A/viewform" target="_blank" rel="noopener" hidden>
-    <span aria-hidden="true">🎤</span><span>Meldung einsprechen<small>Formular öffnen, Mikrofon der Tastatur antippen</small></span>
-  </a>
+  <section class="voice" id="cta" hidden>
+    <button class="mic" id="mic" type="button" aria-pressed="false">
+      <span class="mic-dot" aria-hidden="true">🎤</span>
+      <span><b id="mic-label">Meldung einsprechen</b><small id="mic-sub">Antippen und sprechen, z. B. „Fach 150, 4 Stück aufgefüllt“</small></span>
+    </button>
+    <div class="vbox" id="vbox" hidden>
+      <label for="vtext">Deine Meldung</label>
+      <textarea id="vtext" rows="3" placeholder="Hier erscheint, was du sagst. Du kannst auch tippen oder das Mikrofon der Tastatur nutzen."></textarea>
+      <label for="vname">Wer meldet?</label>
+      <input id="vname" type="text" autocomplete="name" placeholder="Dein Name">
+      <div class="vrow">
+        <button class="vsend" id="vsend" type="button">Senden</button>
+        <button class="vcancel" id="vcancel" type="button">Abbrechen</button>
+      </div>
+      <div class="vmsg" id="vmsg" role="status"></div>
+      <a class="vform" href="https://docs.google.com/forms/d/e/1FAIpQLSdyv8eSRf5cG0c4MoMQnV408WldEN538lE_WSrCdPCyiw8Z2A/viewform" target="_blank" rel="noopener">Stattdessen das Formular öffnen</a>
+    </div>
+  </section>
 
   <div class="note" id="status">Daten werden geladen …</div>
 
@@ -407,6 +442,56 @@ h1{font-family:var(--display);font-weight:800;font-size:clamp(2.6rem,11vw,4rem);
   function done(){ if(state.loaded.b && state.loaded.t){ clearTimeout(timer); setStatus(""); } }
   var timer=setTimeout(function(){ setStatus("Die Daten sind gerade nicht erreichbar. Was hier steht, kann veraltet sein."); }, 10000);
 
+  /* ---------- Sprachmeldung ---------- */
+  (function(){
+    var FORM_URL="https://docs.google.com/forms/d/e/1FAIpQLSdyv8eSRf5cG0c4MoMQnV408WldEN538lE_WSrCdPCyiw8Z2A/formResponse";
+    var E_ART="entry.1005782766", E_TEXT="entry.1068141768", E_NAME="entry.633500849";
+    var ART={auf:"Aufgefüllt – so viele habe ich dazugelegt",bestand:"Bestand im Automaten – so viele sind jetzt drin",
+      weg:"Abgelaufen, kaputt oder entsorgt",lager:"Lagerbestand – so viel liegt im Lager",
+      wechsel:"Produktwechsel – neues Produkt in einem Fach",tagebuch:"Tagebuch – Reinigung, Einkauf, Geld, Störung, Sonstiges"};
+    function art(t){ t=t.toLowerCase();
+      if(/wechsel|getauscht|umgestellt|statt|neues produkt/.test(t)) return ART.wechsel;
+      if(/abgelaufen|kaputt|entsorgt|besch(ä|ae)digt|mhd|weggeworfen/.test(t)) return ART.weg;
+      if(/lager/.test(t)) return ART.lager;
+      if(/aufgef(ü|ue)llt|nachgef(ü|ue)llt|dazu|reingelegt|aufgefüllt/.test(t)) return ART.auf;
+      if(/sind (jetzt )?drin|bestand|noch \d|liegen drin/.test(t)) return ART.bestand;
+      return ART.tagebuch; }
+    var mic=$("mic"), box=$("vbox"), ta=$("vtext"), nm=$("vname"), send=$("vsend"), msg=$("vmsg"), lab=$("mic-label"), sub=$("mic-sub");
+    try{ nm.value=localStorage.getItem("sdw-name")||""; }catch(e){}
+    var SR=window.SpeechRecognition||window.webkitSpeechRecognition, rec=null, listening=false, base="";
+    function setMsg(t,c){ msg.textContent=t||""; msg.className="vmsg"+(c?" "+c:""); }
+    function stop(){ listening=false; mic.setAttribute("aria-pressed","false"); lab.textContent="Weiter sprechen"; sub.textContent="Antippen, um mehr zu sagen. Text unten prüfen und senden."; try{ rec&&rec.stop(); }catch(e){} }
+    function start(){
+      box.hidden=false; setMsg("");
+      if(!SR){ lab.textContent="Meldung eintippen"; sub.textContent="Tippe ins Feld und nutze das Mikrofon deiner Tastatur."; ta.focus(); return; }
+      rec=new SR(); rec.lang="de-DE"; rec.continuous=true; rec.interimResults=true;
+      base=ta.value? ta.value.replace(/\s+$/,"")+" " : "";
+      rec.onresult=function(ev){ var fin="", tmp="";
+        for(var i=0;i<ev.results.length;i++){ var r=ev.results[i]; if(r.isFinal) fin+=r[0].transcript; else tmp+=r[0].transcript; }
+        ta.value=(base+fin+tmp).replace(/\s+/g," ").trimStart(); };
+      rec.onerror=function(ev){ stop(); if(ev.error==="not-allowed"||ev.error==="service-not-allowed") setMsg("Mikrofon ist blockiert. Bitte im Browser erlauben oder ins Feld tippen.","err"); };
+      rec.onend=function(){ if(listening) stop(); };
+      try{ rec.start(); listening=true; mic.setAttribute("aria-pressed","true"); lab.textContent="Ich höre zu … zum Beenden antippen"; sub.textContent="Sag Fach, Produkt und Anzahl."; }
+      catch(e){ stop(); ta.focus(); }
+    }
+    mic.addEventListener("click", function(){ if(listening) stop(); else start(); });
+    $("vcancel").addEventListener("click", function(){ if(listening) stop(); ta.value=""; setMsg(""); box.hidden=true; lab.textContent="Meldung einsprechen"; sub.textContent="Antippen und sprechen, z. B. „Fach 150, 4 Stück aufgefüllt“"; });
+    send.addEventListener("click", async function(){
+      if(listening) stop();
+      var t=ta.value.trim(), n=nm.value.trim();
+      if(!t){ setMsg("Bitte erst etwas sagen oder eintippen.","err"); return; }
+      if(!n){ setMsg("Bitte noch deinen Namen eintragen.","err"); nm.focus(); return; }
+      try{ localStorage.setItem("sdw-name",n); }catch(e){}
+      var body=new URLSearchParams(); body.append(E_ART,art(t)); body.append(E_TEXT,t); body.append(E_NAME,n);
+      send.disabled=true; setMsg("Wird gesendet …");
+      try{
+        await fetch(FORM_URL,{method:"POST",mode:"no-cors",body:body});
+        ta.value=""; setMsg("Gesendet. Claude trägt es innerhalb der nächsten Stunde ein und meldet sich bei Rückfragen in der WhatsApp-Gruppe.","ok");
+        lab.textContent="Neue Meldung einsprechen"; sub.textContent="Antippen und sprechen.";
+      }catch(e){ setMsg("Senden hat nicht geklappt. Bitte Internet prüfen und nochmal tippen.","err"); }
+      send.disabled=false;
+    });
+  })();
   var KEY="sdw-code", gate=$("gate"), pinEl=$("pin"), errEl=$("pin-err");
   function b64(s){ var b=atob(s), u=new Uint8Array(b.length); for(var i=0;i<b.length;i++) u[i]=b.charCodeAt(i); return u; }
   function getCode(){ try{ return localStorage.getItem(KEY)||""; }catch(e){ return ""; } }
