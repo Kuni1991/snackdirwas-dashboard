@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Snack dir was Automat</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;700;800&family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* Idee: Logbuch im Look von Automaten-Beschilderung. Schmale, hohe Ziffern für Tage und Monate,
+   ein Signalgelb nur für die Monatsbänder und die Jahresleiste, sonst ruhig. Eine Spalte fürs Handy. */
+:root{
+  --bg:#f3f2ed; --surface:#ffffff; --ink:#14171f; --muted:#5f6672; --line:#dcdad2;
+  --signal:#ffc62a; --signal-ink:#14171f; --link:#1b47c4; --link-soft:#e4eafb;
+  --good:#1d8a4e; --warn:#a86200; --crit:#c2362b; --warn-soft:#fbf0d6; --crit-soft:#fbe4e1;
+  --display:"Big Shoulders Display","Arial Narrow","Roboto Condensed",sans-serif;
+  --body:"Figtree","Segoe UI",system-ui,sans-serif;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0e1118; --surface:#171b26; --ink:#eceef3; --muted:#9aa2b1; --line:#2a3040;
+    --signal:#ffc62a; --signal-ink:#14171f; --link:#8fb0ff; --link-soft:#1c2744;
+    --good:#58c98a; --warn:#f0b24a; --crit:#f27e72; --warn-soft:#3a2d10; --crit-soft:#3f1d1a;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0e1118; --surface:#171b26; --ink:#eceef3; --muted:#9aa2b1; --line:#2a3040;
+  --signal:#ffc62a; --signal-ink:#14171f; --link:#8fb0ff; --link-soft:#1c2744;
+  --good:#58c98a; --warn:#f0b24a; --crit:#f27e72; --warn-soft:#3a2d10; --crit-soft:#3f1d1a;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:16px;line-height:1.5}
+.wrap{max-width:680px;margin:0 auto;padding:22px 16px 56px;display:flex;flex-direction:column;gap:18px}
+button{font-family:var(--body)}
+button:focus-visible,input:focus-visible{outline:3px solid var(--link);outline-offset:2px}
+[hidden]{display:none!important}
+
+/* Kopf */
+.eyebrow{font-size:.8rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+h1{font-family:var(--display);font-weight:800;font-size:clamp(2.6rem,11vw,4rem);line-height:.92;margin:4px 0 0;
+  letter-spacing:.01em;text-transform:uppercase;text-wrap:balance}
+.tabs{display:flex;gap:0;border:2px solid var(--ink);border-radius:12px;overflow:hidden}
+.tab{flex:1;padding:11px 10px;border:0;background:transparent;color:var(--ink);font-weight:700;font-size:1rem;cursor:pointer}
+.tab[aria-selected="true"]{background:var(--ink);color:var(--bg)}
+.note{background:var(--surface);border:1px dashed var(--line);border-radius:10px;padding:12px;color:var(--muted);font-size:.92rem}
+.view{display:flex;flex-direction:column;gap:16px}
+
+/* Jahresleiste */
+.year{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px 12px 10px}
+.year-head{display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin-bottom:10px}
+.year-head b{font-family:var(--display);font-size:1.5rem;font-weight:700;letter-spacing:.02em}
+.year-head span{color:var(--muted);font-size:.85rem;text-align:right}
+.months{display:grid;grid-template-columns:repeat(12,1fr);gap:4px;align-items:end;height:96px}
+.mcol{display:flex;flex-direction:column;justify-content:flex-end;align-items:stretch;gap:3px;height:100%;
+  border:0;background:transparent;padding:0;cursor:pointer;color:var(--ink)}
+.mcol:disabled{cursor:default;opacity:.35}
+.mbar{background:var(--signal);border-radius:4px 4px 0 0;min-height:3px;position:relative}
+.mcol.has-vorfall .mbar{box-shadow:inset 0 4px 0 var(--crit)}
+.mnum{font-size:.72rem;font-weight:600;text-align:center;font-variant-numeric:tabular-nums}
+.mname{font-size:.68rem;color:var(--muted);text-align:center;text-transform:uppercase;letter-spacing:.04em}
+.legend{display:flex;flex-wrap:wrap;gap:4px 14px;margin-top:10px;color:var(--muted);font-size:.78rem}
+.legend i{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--crit);margin-right:5px}
+.legend i.sq{border-radius:2px;background:var(--signal)}
+
+/* Kennzahlen */
+.facts{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.fact{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:10px 12px}
+.fact b{display:block;font-family:var(--display);font-weight:700;font-size:1.9rem;line-height:1;font-variant-numeric:tabular-nums}
+.fact span{color:var(--muted);font-size:.8rem;line-height:1.25;display:block;margin-top:4px}
+.fact.warn b{color:var(--warn)} .fact.crit b{color:var(--crit)}
+
+/* Filter */
+.search{width:100%;padding:11px 12px;border:1px solid var(--line);border-radius:10px;background:var(--surface);
+  color:var(--ink);font:400 1rem var(--body)}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{padding:6px 11px;border:1px solid var(--line);background:var(--surface);color:var(--ink);
+  font-weight:500;font-size:.86rem;border-radius:999px;cursor:pointer}
+.chip[aria-pressed="true"]{background:var(--link-soft);border-color:var(--link);color:var(--link)}
+
+/* Monat */
+.month{display:flex;flex-direction:column;gap:0;scroll-margin-top:12px}
+.band{background:var(--signal);color:var(--signal-ink);border-radius:12px 12px 0 0;padding:10px 14px;
+  display:flex;justify-content:space-between;align-items:flex-end;gap:12px}
+.band h2{font-family:var(--display);font-weight:800;font-size:2rem;line-height:.95;margin:0;text-transform:uppercase;letter-spacing:.02em}
+.band div{font-size:.8rem;font-weight:600;text-align:right;line-height:1.3}
+.days{background:var(--surface);border:1px solid var(--line);border-top:0;border-radius:0 0 12px 12px}
+.day{display:grid;grid-template-columns:54px 1fr;gap:12px;padding:14px 14px 14px 10px;border-top:1px solid var(--line)}
+.day:first-child{border-top:0}
+.day.vorfall{box-shadow:inset 4px 0 0 var(--crit)}
+.when{text-align:center}
+.when b{display:block;font-family:var(--display);font-weight:700;font-size:2.3rem;line-height:.9;font-variant-numeric:tabular-nums}
+.when span{display:block;margin-top:4px;font-size:.72rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.what{display:flex;flex-direction:column;gap:8px;min-width:0}
+.kinds{font-size:.74rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);line-height:1.5}
+.kinds .k-vorfall{color:var(--crit)} .kinds .k-abschreibung,.kinds .k-stoerung{color:var(--warn)}
+.kinds .k-geld,.kinds .k-kontrolle{color:var(--good)}
+.what p{margin:0;overflow-wrap:anywhere}
+.loss{border:1px solid var(--line);border-radius:8px;overflow:hidden;font-size:.88rem}
+.loss div{display:grid;grid-template-columns:44px 1fr auto;gap:8px;padding:5px 10px;border-top:1px solid var(--line);align-items:baseline}
+.loss div:first-child{border-top:0}
+.loss b{text-align:right;font-variant-numeric:tabular-nums;font-weight:700}
+.loss small{color:var(--muted);white-space:nowrap}
+.money{align-self:flex-start;background:var(--ink);color:var(--bg);border-radius:8px;padding:4px 10px;font-weight:700;
+  font-variant-numeric:tabular-nums;font-size:.92rem}
+.hint{background:var(--warn-soft);border-radius:8px;padding:7px 10px;font-size:.86rem}
+
+/* Nachfüllen */
+.stand{color:var(--muted);font-size:.86rem}
+.gauge{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px}
+.gauge-top{display:flex;align-items:flex-end;justify-content:space-between;gap:12px}
+.gauge-top b{font-family:var(--display);font-weight:800;font-size:3.4rem;line-height:.85;font-variant-numeric:tabular-nums}
+.gauge-top span{color:var(--muted);font-size:.86rem;text-align:right}
+.track{height:12px;border-radius:6px;background:var(--line);overflow:hidden;margin-top:12px}
+.track i{display:block;height:100%;background:var(--signal)}
+.sect{font-family:var(--display);font-weight:700;font-size:1.5rem;line-height:1;margin:6px 0 0;text-transform:uppercase;letter-spacing:.02em}
+.list{display:flex;flex-direction:column;gap:6px}
+.row{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:10px 12px;
+  display:grid;grid-template-columns:auto 1fr auto;gap:4px 10px;align-items:center}
+.row.krit{box-shadow:inset 4px 0 0 var(--crit)} .row.low{box-shadow:inset 4px 0 0 var(--warn)}
+.fach{font-family:var(--display);font-weight:700;font-size:1.15rem;line-height:1;background:var(--ink);color:var(--bg);
+  border-radius:6px;padding:4px 7px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.name{font-weight:600;overflow-wrap:anywhere}
+.need{text-align:right;line-height:1.15}
+.need b{font-family:var(--display);font-weight:700;font-size:1.5rem;font-variant-numeric:tabular-nums}
+.need small{display:block;color:var(--muted);font-size:.72rem}
+.meta{grid-column:1/-1;color:var(--muted);font-size:.8rem;display:flex;flex-wrap:wrap;gap:2px 12px}
+.flag{color:var(--crit);font-weight:600}
+.more{align-self:flex-start;padding:10px 14px;border:2px solid var(--ink);border-radius:10px;background:transparent;color:var(--ink);
+  font-weight:700;font-size:.95rem;cursor:pointer}
+
+.cta{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;padding:14px 16px;border-radius:12px;
+  background:var(--signal);color:var(--signal-ink);font:700 17px/1.2 Figtree,system-ui,sans-serif;text-decoration:none;border:2px solid var(--ink)}
+.cta:active{transform:translateY(1px)}
+.cta small{display:block;font-weight:500;font-size:12.5px;opacity:.8}
+.gate{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:18px;display:grid;gap:12px}
+.gate label{font-weight:600}
+.gate input{font:600 20px/1.2 Figtree,system-ui,sans-serif;padding:12px;border:2px solid var(--ink);border-radius:10px;background:var(--bg);color:var(--ink);width:100%}
+.gate button{font:700 17px/1 Figtree,system-ui,sans-serif;padding:14px;border-radius:10px;border:0;background:var(--ink);color:var(--bg)}
+.gate .err{color:var(--crit);font-weight:600;min-height:1.2em}
+.foot{color:var(--muted);font-size:12.5px;text-align:center;padding:8px 0 20px}
+.foot button{background:none;border:0;color:var(--link);font:inherit;text-decoration:underline;padding:0}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="eyebrow">Snack dir was · Löwentorstr. 10, Bleicherode</div>
+    <h1 id="title">Unternehmens&shy;tagebuch</h1>
+  </header>
+
+  <div class="tabs" role="tablist">
+    <button class="tab" id="tab-tagebuch" role="tab" aria-selected="true">Tagebuch</button>
+    <button class="tab" id="tab-nachfuellen" role="tab" aria-selected="false">Nachfüllen</button>
+  </div>
+
+
+  <section class="gate" id="gate" hidden>
+    <label for="pin">Zugangscode</label>
+    <input id="pin" type="password" autocomplete="off" autocapitalize="off" inputmode="text" placeholder="Code eingeben">
+    <button id="pin-go" type="button">Öffnen</button>
+    <div class="err" id="pin-err" role="alert"></div>
+  </section>
+
+  <a class="cta" id="cta" href="https://docs.google.com/forms/d/e/1FAIpQLSdyv8eSRf5cG0c4MoMQnV408WldEN538lE_WSrCdPCyiw8Z2A/viewform" target="_blank" rel="noopener" hidden>
+    <span aria-hidden="true">🎤</span><span>Meldung einsprechen<small>Formular öffnen, Mikrofon der Tastatur antippen</small></span>
+  </a>
+
+  <div class="note" id="status">Daten werden geladen …</div>
+
+  <section class="view" id="view-tagebuch">
+    <div class="year" id="t-year"></div>
+    <div class="facts" id="t-facts"></div>
+    <input class="search" id="t-search" type="search" placeholder="Im Tagebuch suchen" aria-label="Im Tagebuch suchen">
+    <div class="chips" id="t-chips"></div>
+    <div class="view" id="t-list"></div>
+  </section>
+
+  <section class="view" id="view-nachfuellen" hidden>
+    <div class="gauge" id="b-gauge"></div>
+    <div class="facts" id="b-facts"></div>
+    <div class="stand" id="b-stand"></div>
+    <h2 class="sect" id="b-head"></h2>
+    <input class="search" id="b-search" type="search" placeholder="Fach oder Produkt suchen" aria-label="Fach oder Produkt suchen" hidden>
+    <div class="list" id="b-list"></div>
+    <button class="more" id="b-more" type="button"></button>
+  </section>
+
+  <div class="foot" id="foot" hidden>Nur für die Automaten-Crew · <button id="lock" type="button">Abmelden</button></div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+  var ARTEN = {befuellung:"Befüllung",reinigung:"Reinigung",einkauf:"Einkauf",lieferung:"Lieferung & Bestellung",
+    abschreibung:"Abschreibung",testkauf:"Testkauf",geld:"Geld",stoerung:"Störung",vorfall:"Vorfall",
+    kontrolle:"Kontrolle",einstellung:"Preise & Sortiment",sonstiges:"Sonstiges"};
+  var MONATE = ["Januar","Februar","März","April","Mai","Juni","Juli","August","September","Oktober","November","Dezember"];
+  var MKURZ = ["Jan","Feb","Mär","Apr","Mai","Jun","Jul","Aug","Sep","Okt","Nov","Dez"];
+  var TAGE = ["So","Mo","Di","Mi","Do","Fr","Sa"];
+
+  var state = {rows:[], stand:"", entries:[], showAll:false, bQuery:"", tFilter:"alle", tQuery:"", loaded:{b:false,t:false}};
+  var $ = function(id){ return document.getElementById(id); };
+  function el(tag, cls, text){ var e=document.createElement(tag); if(cls) e.className=cls; if(text!=null) e.textContent=text; return e; }
+  function num(v){ var n=Number(v); return isFinite(n)?n:0; }
+  function euro(n){ return n.toLocaleString("de-DE",{maximumFractionDigits:0})+" €"; }
+  function fact(parent, value, label, cls){
+    var t=el("div","fact"+(cls?" "+cls:"")); t.appendChild(el("b",null,value)); t.appendChild(el("span",null,label)); parent.appendChild(t);
+  }
+  function arten(e){ return Array.isArray(e.arten)?e.arten:[]; }
+  function verluste(e){ return Array.isArray(e.abschr)?e.abschr:[]; }
+
+  /* ---------- Tagebuch ---------- */
+  function monthStats(list){
+    var s={n:list.length, stueck:0, einz:0, vorfall:0, fuell:0};
+    list.forEach(function(e){
+      verluste(e).forEach(function(a){ s.stueck+=num(a.m); });
+      s.einz+=num(e.einzahlung);
+      if(arten(e).indexOf("vorfall")>=0) s.vorfall++;
+      if(arten(e).indexOf("befuellung")>=0) s.fuell++;
+    });
+    return s;
+  }
+  function renderYear(){
+    var box=$("t-year"); box.textContent="";
+    var es=state.entries;
+    var year = es.length ? String(es[0].datum||"").slice(0,4) : "";
+    var per=[]; for(var i=0;i<12;i++) per.push([]);
+    es.forEach(function(e){ var m=+String(e.datum||"").slice(5,7); if(m>=1&&m<=12 && String(e.datum).slice(0,4)===year) per[m-1].push(e); });
+    var max=1; per.forEach(function(l){ if(l.length>max) max=l.length; });
+    var head=el("div","year-head"); head.appendChild(el("b",null,year?("Jahr "+year):"Jahr"));
+    head.appendChild(el("span",null,"Einträge je Monat. Tippe einen Monat an."));
+    box.appendChild(head);
+    var grid=el("div","months");
+    per.forEach(function(l,i){
+      var s=monthStats(l);
+      var b=el("button","mcol"+(s.vorfall?" has-vorfall":"")); b.type="button"; b.disabled=!l.length;
+      b.setAttribute("aria-label", MONATE[i]+": "+l.length+" Einträge"+(s.vorfall?", "+s.vorfall+" zu Vorfällen":""));
+      b.appendChild(el("span","mnum", l.length?String(l.length):""));
+      var bar=el("span","mbar"); bar.style.height=(l.length? Math.max(6, Math.round(l.length/max*52)) : 3)+"px"; b.appendChild(bar);
+      b.appendChild(el("span","mname",MKURZ[i]));
+      b.addEventListener("click", function(){
+        state.tFilter="alle"; state.tQuery=""; $("t-search").value=""; renderTagebuch();
+        var t=document.getElementById("m-"+year+"-"+(i<9?"0":"")+(i+1)); if(t) t.scrollIntoView({behavior:"smooth",block:"start"});
+      });
+      grid.appendChild(b);
+    });
+    box.appendChild(grid);
+    var lg=el("div","legend");
+    var a=el("span"); a.appendChild(el("i","sq")); a.appendChild(document.createTextNode("Anzahl Einträge")); lg.appendChild(a);
+    var c=el("span"); c.appendChild(el("i")); c.appendChild(document.createTextNode("Monat mit Vorfall")); lg.appendChild(c);
+    box.appendChild(lg);
+  }
+  function renderTagebuch(){
+    var es=state.entries, all=monthStats(es);
+    renderYear();
+    var f=$("t-facts"); f.textContent="";
+    fact(f, String(all.fuell), "Befüllungen");
+    fact(f, String(all.stueck), "Stück abgeschrieben", all.stueck?"warn":"");
+    fact(f, euro(all.einz), "eingezahlt (mit Betrag)");
+    var chips=$("t-chips"); chips.textContent="";
+    var map={alle:"Alle"}; Object.keys(ARTEN).forEach(function(k){ map[k]=ARTEN[k]; });
+    Object.keys(map).forEach(function(k){
+      var b=el("button","chip",map[k]); b.type="button"; b.setAttribute("aria-pressed",String(k===state.tFilter));
+      b.addEventListener("click", function(){ state.tFilter=k; renderTagebuch(); }); chips.appendChild(b);
+    });
+    var q=state.tQuery.trim().toLowerCase();
+    var shown=es.filter(function(e){
+      if(state.tFilter!=="alle" && arten(e).indexOf(state.tFilter)<0) return false;
+      if(q && String(e.text||"").toLowerCase().indexOf(q)<0) return false;
+      return true;
+    });
+    var list=$("t-list"); list.textContent="";
+    var groups=[], cur=null;
+    shown.forEach(function(e){
+      var mk=String(e.datum||"").slice(0,7);
+      if(!cur || cur.key!==mk){ cur={key:mk,items:[]}; groups.push(cur); }
+      cur.items.push(e);
+    });
+    groups.forEach(function(g){
+      var p=g.key.split("-"), s=monthStats(g.items);
+      var sec=el("section","month"); sec.id="m-"+g.key;
+      var band=el("div","band");
+      band.appendChild(el("h2",null,(MONATE[+p[1]-1]||"")));
+      var info=el("div");
+      info.appendChild(document.createTextNode(s.n+(s.n===1?" Eintrag":" Einträge")));
+      if(s.stueck){ info.appendChild(el("br")); info.appendChild(document.createTextNode(s.stueck+" Stück abgeschrieben")); }
+      if(s.einz){ info.appendChild(el("br")); info.appendChild(document.createTextNode(euro(s.einz)+" eingezahlt")); }
+      band.appendChild(info); sec.appendChild(band);
+      var days=el("div","days");
+      g.items.forEach(function(e){
+        var ks=arten(e), d=String(e.datum||"").split("-");
+        var day=el("article","day"+(ks.indexOf("vorfall")>=0?" vorfall":""));
+        var when=el("div","when");
+        when.appendChild(el("b",null,d[2]||""));
+        var dt=new Date(+d[0],+d[1]-1,+d[2]);
+        when.appendChild(el("span",null,isNaN(dt)?"":TAGE[dt.getDay()]));
+        day.appendChild(when);
+        var what=el("div","what");
+        var kinds=el("div","kinds");
+        ks.forEach(function(k,i){
+          if(i) kinds.appendChild(document.createTextNode(" · "));
+          kinds.appendChild(el("span","k-"+String(k).replace(/[^a-z]/g,""), ARTEN[k]||String(k)));
+        });
+        what.appendChild(kinds);
+        what.appendChild(el("p",null,String(e.text||"")));
+        var vs=verluste(e);
+        if(vs.length){
+          var loss=el("div","loss");
+          vs.forEach(function(a){
+            var r=el("div");
+            r.appendChild(el("b",null,a.m!=null? a.m+" ×":"?"));
+            r.appendChild(el("span",null,String(a.p||"")));
+            r.appendChild(el("small",null,a.d? "MHD "+a.d : String(a.g||"")));
+            loss.appendChild(r);
+          });
+          what.appendChild(loss);
+        }
+        if(e.einzahlung) what.appendChild(el("div","money","Einzahlung "+euro(num(e.einzahlung))));
+        if(e.hinweis) what.appendChild(el("div","hint","Offen: "+String(e.hinweis)));
+        day.appendChild(what); days.appendChild(day);
+      });
+      sec.appendChild(days); list.appendChild(sec);
+    });
+    if(!shown.length && state.loaded.t) list.appendChild(el("div","note", es.length? "Kein Eintrag passt zu dieser Auswahl." : "Es sind noch keine Einträge gespeichert."));
+  }
+
+  /* ---------- Nachfüllen ---------- */
+  function parseDe(s){ var m=/^(\d{2})\.(\d{2})\.(\d{4})/.exec(s||""); return m? new Date(+m[3],+m[2]-1,+m[1]) : null; }
+  function info(r){
+    var menge=num(r.m), max=num(r.x), krit=num(r.k);
+    var pct = max>0 ? Math.min(100, Math.round(menge/max*100)) : 0;
+    var cls = (menge===0 || menge<=krit) ? "krit" : (pct<50 ? "low" : "ok");
+    var d=parseDe(r.v);
+    return {menge:menge,max:max,pct:pct,cls:cls,fehlt:Math.max(0,max-menge),abgelaufen:!!(d && d<new Date())};
+  }
+  function renderBestand(){
+    var xs=state.rows.map(function(r){ return {r:r,i:info(r)}; });
+    var stueck=0, kap=0, low=0, krit=0, verf=0;
+    xs.forEach(function(x){ stueck+=x.i.menge; kap+=x.i.max; if(x.i.cls==="krit") krit++; else if(x.i.cls==="low") low++; if(x.i.abgelaufen) verf++; });
+    var g=$("b-gauge"); g.textContent="";
+    var top=el("div","gauge-top");
+    top.appendChild(el("b",null,(kap? Math.round(stueck/kap*100) : 0)+" %"));
+    top.appendChild(el("span",null,"Automat gefüllt: "+stueck+" von "+kap+" Stück"));
+    g.appendChild(top);
+    var tr=el("div","track"); var fi=el("i"); fi.style.width=(kap? Math.round(stueck/kap*100) : 0)+"%"; tr.appendChild(fi); g.appendChild(tr);
+    var f=$("b-facts"); f.textContent="";
+    fact(f, String(krit), "leer oder kritisch", krit?"crit":"");
+    fact(f, String(low), "unter halb voll", low?"warn":"");
+    fact(f, String(verf), "Verfallsdatum prüfen", verf?"crit":"");
+    $("b-stand").textContent = state.stand ? "Stand laut Vendon: "+state.stand : "";
+    var need=xs.filter(function(x){ return x.i.cls!=="ok" || x.i.abgelaufen; })
+      .sort(function(a,b){ return a.i.pct-b.i.pct || b.i.fehlt-a.i.fehlt; });
+    var q=state.bQuery.trim().toLowerCase();
+    var show = state.showAll ? xs.filter(function(x){ return !q || (String(x.r.n)+" "+String(x.r.p)).toLowerCase().indexOf(q)>=0; }) : need;
+    $("b-head").textContent = state.showAll ? "Alle "+xs.length+" Produkte" : need.length+" Fächer brauchen Aufmerksamkeit";
+    $("b-search").hidden = !state.showAll;
+    $("b-more").textContent = state.showAll ? "Nur Fächer mit Handlungsbedarf zeigen" : "Alle "+xs.length+" Produkte anzeigen";
+    $("b-more").hidden = !xs.length;
+    var list=$("b-list"); list.textContent="";
+    show.forEach(function(x){
+      var r=x.r, i=x.i;
+      var row=el("div","row "+i.cls);
+      row.appendChild(el("span","fach",String(r.n)));
+      row.appendChild(el("span","name",String(r.p)));
+      var need=el("span","need"); need.appendChild(el("b",null,i.fehlt? "+"+i.fehlt : "voll")); need.appendChild(el("small",null,i.menge+" von "+i.max)); row.appendChild(need);
+      if(r.v){ var meta=el("div","meta"); meta.appendChild(el("span", i.abgelaufen?"flag":null, "Verfallsdatum in Vendon: "+r.v)); row.appendChild(meta); }
+      list.appendChild(row);
+    });
+    if(!show.length && state.loaded.b) list.appendChild(el("div","note", !xs.length? "Es ist noch kein Bestand gespeichert." : (state.showAll? "Kein Fach passt zu dieser Suche." : "Alle Fächer sind mindestens halb voll.")));
+  }
+
+  /* ---------- Umschalter ---------- */
+  function show(view){
+    var t = view!=="nachfuellen";
+    $("view-tagebuch").hidden=!t; $("view-nachfuellen").hidden=t;
+    $("tab-tagebuch").setAttribute("aria-selected",String(t)); $("tab-nachfuellen").setAttribute("aria-selected",String(!t));
+    $("title").textContent = t ? "Unternehmens­tagebuch" : "Nachfüllen";
+  }
+  function route(){ show(location.hash==="#nachfuellen"?"nachfuellen":"tagebuch"); }
+  $("tab-tagebuch").addEventListener("click", function(){ location.hash="#tagebuch"; show("tagebuch"); });
+  $("tab-nachfuellen").addEventListener("click", function(){ location.hash="#nachfuellen"; show("nachfuellen"); });
+  window.addEventListener("hashchange", route); route();
+  $("b-search").addEventListener("input", function(e){ state.bQuery=e.target.value; renderBestand(); });
+  $("t-search").addEventListener("input", function(e){ state.tQuery=e.target.value; renderTagebuch(); });
+  $("b-more").addEventListener("click", function(){ state.showAll=!state.showAll; state.bQuery=""; $("b-search").value=""; renderBestand(); });
+  renderBestand(); renderTagebuch();
+
+  /* ---------- Daten ---------- */
+  var statusEl=$("status");
+  function setStatus(t){ if(t){ statusEl.textContent=t; statusEl.hidden=false; } else statusEl.hidden=true; }
+  function done(){ if(state.loaded.b && state.loaded.t){ clearTimeout(timer); setStatus(""); } }
+  var timer=setTimeout(function(){ setStatus("Die Daten sind gerade nicht erreichbar. Was hier steht, kann veraltet sein."); }, 10000);
+
+  var KEY="sdw-code", gate=$("gate"), pinEl=$("pin"), errEl=$("pin-err");
+  function b64(s){ var b=atob(s), u=new Uint8Array(b.length); for(var i=0;i<b.length;i++) u[i]=b.charCodeAt(i); return u; }
+  function getCode(){ try{ return localStorage.getItem(KEY)||""; }catch(e){ return ""; } }
+  function setCode(v){ try{ if(v) localStorage.setItem(KEY,v); else localStorage.removeItem(KEY); }catch(e){} }
+  async function decrypt(box, code){
+    var km=await crypto.subtle.importKey("raw", new TextEncoder().encode(code), "PBKDF2", false, ["deriveKey"]);
+    var key=await crypto.subtle.deriveKey({name:"PBKDF2",salt:b64(box.salt),iterations:box.iter,hash:"SHA-256"}, km, {name:"AES-GCM",length:256}, false, ["decrypt"]);
+    var pt=await crypto.subtle.decrypt({name:"AES-GCM",iv:b64(box.iv)}, key, b64(box.ct));
+    return JSON.parse(new TextDecoder().decode(pt));
+  }
+  function showData(d){
+    var b=d.bestand||{};
+    state.rows=Array.isArray(b.zeilen)? b.zeilen.slice():[];
+    state.stand=String(b.stand||"");
+    var arr=Array.isArray(d.tagebuch)? d.tagebuch.slice():[];
+    arr.sort(function(a,c){ var x=String(c.datum||"").localeCompare(String(a.datum||"")); return x!==0? x : num(c.pos)-num(a.pos); });
+    state.entries=arr; state.loaded.b=true; state.loaded.t=true;
+    gate.hidden=true; $("cta").hidden=false; $("foot").hidden=false;
+    document.querySelector(".tabs").hidden=false; route();
+    renderBestand(); renderTagebuch(); done();
+  }
+  function lockView(msg){
+    clearTimeout(timer); setStatus("");
+    document.querySelector(".tabs").hidden=true; $("view-tagebuch").hidden=true; $("view-nachfuellen").hidden=true;
+    $("cta").hidden=true; $("foot").hidden=true; gate.hidden=false; errEl.textContent=msg||""; pinEl.focus();
+  }
+  var box=null;
+  async function tryOpen(code, fromInput){
+    if(!crypto || !crypto.subtle){ lockView("Dieser Browser kann die Daten nicht entschlüsseln."); return; }
+    try{
+      if(!box){ var r=await fetch("daten.enc.json?t="+Date.now(), {cache:"no-store"}); if(!r.ok) throw new Error("netz"); box=await r.json(); }
+    }catch(e){ clearTimeout(timer); gate.hidden=true; setStatus("Die Daten sind gerade nicht erreichbar. Bitte später noch einmal versuchen."); return; }
+    try{ var d=await decrypt(box, code); setCode(code); showData(d); }
+    catch(e){ setCode(""); lockView(fromInput? "Der Code stimmt nicht." : ""); }
+  }
+  function submit(){ var c=pinEl.value.trim(); if(!c){ errEl.textContent="Bitte den Code eingeben."; return; } errEl.textContent="Wird geöffnet …"; tryOpen(c, true); }
+  $("pin-go").addEventListener("click", submit);
+  pinEl.addEventListener("keydown", function(e){ if(e.key==="Enter") submit(); });
+  $("lock").addEventListener("click", function(){ setCode(""); pinEl.value=""; state.rows=[]; state.entries=[]; lockView(""); });
+  var saved=getCode();
+  if(saved) tryOpen(saved, false); else lockView("");
+})();
+</script>
+</body>
+</html>
