@@ -141,6 +141,11 @@ h1{font-family:var(--display);font-weight:800;font-size:clamp(2.6rem,11vw,4rem);
 .gate input{font:600 20px/1.2 Figtree,system-ui,sans-serif;padding:12px;border:2px solid var(--ink);border-radius:10px;background:var(--bg);color:var(--ink);width:100%}
 .gate button{font:700 17px/1 Figtree,system-ui,sans-serif;padding:14px;border-radius:10px;border:0;background:var(--ink);color:var(--bg)}
 .gate .err{color:var(--crit);font-weight:600;min-height:1.2em}
+.krow{background:var(--surface);border:1px solid var(--line);border-left:5px solid var(--line);border-radius:12px;padding:12px;display:flex;justify-content:space-between;gap:12px;align-items:flex-start}
+.krow.crit{border-left-color:var(--crit)} .krow.warn{border-left-color:var(--warn)} .krow.good{border-left-color:var(--good)}
+.krow .kt{font-weight:600} .krow .kd{color:var(--muted);font-size:.86rem;margin-top:3px}
+.krow .kv{font-family:var(--display);font-weight:700;font-size:1.25rem;white-space:nowrap}
+.tab{font-size:.95rem}
 .foot{color:var(--muted);font-size:12.5px;text-align:center;padding:8px 0 20px}
 .foot button{background:none;border:0;color:var(--link);font:inherit;text-decoration:underline;padding:0}
 </style>
@@ -155,6 +160,7 @@ h1{font-family:var(--display);font-weight:800;font-size:clamp(2.6rem,11vw,4rem);
   <div class="tabs" role="tablist">
     <button class="tab" id="tab-tagebuch" role="tab" aria-selected="true">Tagebuch</button>
     <button class="tab" id="tab-nachfuellen" role="tab" aria-selected="false">Nachfüllen</button>
+    <button class="tab" id="tab-buch" role="tab" aria-selected="false">Buchhaltung</button>
   </div>
 
 
@@ -187,6 +193,13 @@ h1{font-family:var(--display);font-weight:800;font-size:clamp(2.6rem,11vw,4rem);
     <input class="search" id="b-search" type="search" placeholder="Fach oder Produkt suchen" aria-label="Fach oder Produkt suchen" hidden>
     <div class="list" id="b-list"></div>
     <button class="more" id="b-more" type="button"></button>
+  </section>
+
+  <section class="view" id="view-buch" hidden>
+    <div class="facts" id="k-facts"></div>
+    <div class="stand" id="k-stand"></div>
+    <h2 class="sect">Offene Punkte</h2>
+    <div class="list" id="k-list"></div>
   </section>
 
   <div class="foot" id="foot" hidden>Nur für die Automaten-Crew · <button id="lock" type="button">Abmelden</button></div>
@@ -374,15 +387,14 @@ h1{font-family:var(--display);font-weight:800;font-size:clamp(2.6rem,11vw,4rem);
   }
 
   /* ---------- Umschalter ---------- */
+  var VIEWS={tagebuch:"Unternehmens­tagebuch",nachfuellen:"Nachfüllen",buch:"Buchhaltung"};
   function show(view){
-    var t = view!=="nachfuellen";
-    $("view-tagebuch").hidden=!t; $("view-nachfuellen").hidden=t;
-    $("tab-tagebuch").setAttribute("aria-selected",String(t)); $("tab-nachfuellen").setAttribute("aria-selected",String(!t));
-    $("title").textContent = t ? "Unternehmens­tagebuch" : "Nachfüllen";
+    if(!VIEWS[view]) view="tagebuch";
+    Object.keys(VIEWS).forEach(function(v){ $("view-"+v).hidden = v!==view; $("tab-"+v).setAttribute("aria-selected", String(v===view)); });
+    $("title").textContent = VIEWS[view];
   }
-  function route(){ show(location.hash==="#nachfuellen"?"nachfuellen":"tagebuch"); }
-  $("tab-tagebuch").addEventListener("click", function(){ location.hash="#tagebuch"; show("tagebuch"); });
-  $("tab-nachfuellen").addEventListener("click", function(){ location.hash="#nachfuellen"; show("nachfuellen"); });
+  function route(){ show((location.hash||"").slice(1)); }
+  Object.keys(VIEWS).forEach(function(v){ $("tab-"+v).addEventListener("click", function(){ location.hash="#"+v; show(v); }); });
   window.addEventListener("hashchange", route); route();
   $("b-search").addEventListener("input", function(e){ state.bQuery=e.target.value; renderBestand(); });
   $("t-search").addEventListener("input", function(e){ state.tQuery=e.target.value; renderTagebuch(); });
@@ -411,14 +423,25 @@ h1{font-family:var(--display);font-weight:800;font-size:clamp(2.6rem,11vw,4rem);
     state.stand=String(b.stand||"");
     var arr=Array.isArray(d.tagebuch)? d.tagebuch.slice():[];
     arr.sort(function(a,c){ var x=String(c.datum||"").localeCompare(String(a.datum||"")); return x!==0? x : num(c.pos)-num(a.pos); });
-    state.entries=arr; state.loaded.b=true; state.loaded.t=true;
+    state.entries=arr; state.buch=d.buch||null; state.loaded.b=true; state.loaded.t=true;
     gate.hidden=true; $("cta").hidden=false; $("foot").hidden=false;
     document.querySelector(".tabs").hidden=false; route();
-    renderBestand(); renderTagebuch(); done();
+    renderBestand(); renderTagebuch(); renderBuch(); done();
+  }
+  function renderBuch(){
+    var k=state.buch, f=$("k-facts"), l=$("k-list"); f.textContent=""; l.textContent="";
+    if(!k){ l.appendChild(el("div","note","Noch kein Buchhaltungsstand gespeichert.")); $("k-stand").textContent=""; return; }
+    (k.facts||[]).forEach(function(x){ fact(f, x.w, x.l, x.c||null); });
+    $("k-stand").textContent = k.stand ? "Stand laut Lexware Office: "+k.stand : "";
+    (k.posten||[]).forEach(function(x){
+      var r=el("div","krow"+(x.c?" "+x.c:"")), a=el("div");
+      a.appendChild(el("div","kt",x.t)); if(x.d) a.appendChild(el("div","kd",x.d));
+      r.appendChild(a); if(x.w) r.appendChild(el("div","kv",x.w)); l.appendChild(r);
+    });
   }
   function lockView(msg){
     clearTimeout(timer); setStatus("");
-    document.querySelector(".tabs").hidden=true; $("view-tagebuch").hidden=true; $("view-nachfuellen").hidden=true;
+    document.querySelector(".tabs").hidden=true; $("view-tagebuch").hidden=true; $("view-nachfuellen").hidden=true; $("view-buch").hidden=true;
     $("cta").hidden=true; $("foot").hidden=true; gate.hidden=false; errEl.textContent=msg||""; pinEl.focus();
   }
   var box=null;
