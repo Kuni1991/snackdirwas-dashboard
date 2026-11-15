@@ -145,7 +145,28 @@ h1{font-family:var(--display);font-weight:800;font-size:clamp(2.6rem,11vw,4rem);
 .krow.crit{border-left-color:var(--crit)} .krow.warn{border-left-color:var(--warn)} .krow.good{border-left-color:var(--good)}
 .krow .kt{font-weight:600} .krow .kd{color:var(--muted);font-size:.86rem;margin-top:3px}
 .krow .kv{font-family:var(--display);font-weight:700;font-size:1.25rem;white-space:nowrap}
-.tab{font-size:.95rem}
+.tabs{display:grid;grid-template-columns:repeat(4,1fr)}
+.tab{font-size:.8rem;white-space:nowrap;padding-left:2px;padding-right:2px;min-width:0}
+.seg{display:flex;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:var(--surface)}
+.seg button{flex:1;font:600 .9rem/1 Figtree,system-ui,sans-serif;padding:11px 6px;border:0;background:none;color:var(--ink)}
+.seg button[aria-pressed="true"]{background:var(--ink);color:var(--bg)}
+.ghero{background:var(--ink);color:var(--bg);border-radius:16px;padding:16px 18px}
+.ghero .k{font-size:.85rem;opacity:.8}
+.ghero .v{font-family:var(--display);font-weight:800;font-size:3rem;line-height:1;margin:4px 0;color:var(--signal)}
+.ghero .d{font-size:.88rem;opacity:.85}
+.gcards{display:grid;gap:8px}
+.gcard{background:var(--surface);border:1px solid var(--line);border-left:5px solid var(--line);border-radius:12px;padding:12px}
+.gcard.top{border-left-color:var(--good)} .gcard.flop{border-left-color:var(--crit)} .gcard.hint{border-left-color:var(--warn)}
+.gcard .gl{font-size:.78rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.gcard .gn{font-weight:700;font-size:1.05rem;margin-top:2px}
+.gcard .gd{color:var(--muted);font-size:.86rem;margin-top:2px}
+.prow{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:10px 12px;display:grid;grid-template-columns:1fr auto;gap:2px 10px}
+.prow .pn{font-weight:600}
+.prow .pv{font-family:var(--display);font-weight:700;font-size:1.2rem;text-align:right}
+.prow .pv.neg{color:var(--crit)}
+.prow .pd{grid-column:1/-1;color:var(--muted);font-size:.82rem}
+.prow .rank{display:inline-block;min-width:1.6em;color:var(--muted);font-variant-numeric:tabular-nums}
+.tab{font-size:.88rem}
 .voice{display:grid;gap:10px}
 .mic{display:flex;align-items:center;gap:14px;width:100%;padding:14px 16px;border-radius:14px;background:var(--signal);color:var(--signal-ink);
   border:2px solid var(--ink);text-align:left;font:inherit;cursor:pointer}
@@ -181,6 +202,7 @@ h1{font-family:var(--display);font-weight:800;font-size:clamp(2.6rem,11vw,4rem);
     <button class="tab" id="tab-tagebuch" role="tab" aria-selected="true">Tagebuch</button>
     <button class="tab" id="tab-nachfuellen" role="tab" aria-selected="false">Nachfüllen</button>
     <button class="tab" id="tab-buch" role="tab" aria-selected="false">Buchhaltung</button>
+    <button class="tab" id="tab-geld" role="tab" aria-selected="false">Verdienst</button>
   </div>
 
 
@@ -230,6 +252,23 @@ h1{font-family:var(--display);font-weight:800;font-size:clamp(2.6rem,11vw,4rem);
     <button class="more" id="b-more" type="button"></button>
   </section>
 
+  <section class="view" id="view-geld" hidden>
+    <div class="seg" id="g-per" role="group" aria-label="Zeitraum">
+      <button type="button" data-p="woche" aria-pressed="true">Diese Woche</button>
+      <button type="button" data-p="vorwoche" aria-pressed="false">Vorwoche</button>
+      <button type="button" data-p="q13" aria-pressed="false">13 Wochen</button>
+    </div>
+    <div class="ghero" id="g-hero"></div>
+    <div class="facts" id="g-facts"></div>
+    <div class="gcards" id="g-cards"></div>
+    <div class="stand" id="g-note"></div>
+    <button class="more" id="g-more" type="button">Details zu allen Produkten</button>
+    <section id="g-detail" hidden>
+      <h2 class="sect">Alle Produkte</h2>
+      <div class="chips" id="g-sort"></div>
+      <div class="list" id="g-list"></div>
+    </section>
+  </section>
   <section class="view" id="view-buch" hidden>
     <div class="facts" id="k-facts"></div>
     <div class="stand" id="k-stand"></div>
@@ -422,7 +461,7 @@ h1{font-family:var(--display);font-weight:800;font-size:clamp(2.6rem,11vw,4rem);
   }
 
   /* ---------- Umschalter ---------- */
-  var VIEWS={tagebuch:"Unternehmens­tagebuch",nachfuellen:"Nachfüllen",buch:"Buchhaltung"};
+  var VIEWS={tagebuch:"Unternehmens­tagebuch",nachfuellen:"Nachfüllen",buch:"Buchhaltung",geld:"Verdienst"};
   function show(view){
     if(!VIEWS[view]) view="tagebuch";
     Object.keys(VIEWS).forEach(function(v){ $("view-"+v).hidden = v!==view; $("tab-"+v).setAttribute("aria-selected", String(v===view)); });
@@ -508,10 +547,10 @@ h1{font-family:var(--display);font-weight:800;font-size:clamp(2.6rem,11vw,4rem);
     state.stand=String(b.stand||"");
     var arr=Array.isArray(d.tagebuch)? d.tagebuch.slice():[];
     arr.sort(function(a,c){ var x=String(c.datum||"").localeCompare(String(a.datum||"")); return x!==0? x : num(c.pos)-num(a.pos); });
-    state.entries=arr; state.buch=d.buch||null; state.loaded.b=true; state.loaded.t=true;
+    state.entries=arr; state.buch=d.buch||null; state.verdienst=d.verdienst||null; state.loaded.b=true; state.loaded.t=true;
     gate.hidden=true; $("cta").hidden=false; $("foot").hidden=false;
     document.querySelector(".tabs").hidden=false; route();
-    renderBestand(); renderTagebuch(); renderBuch(); done();
+    renderBestand(); renderTagebuch(); renderBuch(); renderGeld(); done();
   }
   function renderBuch(){
     var k=state.buch, f=$("k-facts"), l=$("k-list"); f.textContent=""; l.textContent="";
@@ -524,9 +563,53 @@ h1{font-family:var(--display);font-weight:800;font-size:clamp(2.6rem,11vw,4rem);
       r.appendChild(a); if(x.w) r.appendChild(el("div","kv",x.w)); l.appendChild(r);
     });
   }
+  var gState={p:"woche",sort:"g",open:false};
+  var SORTS=[["g","Gewinn"],["s","Stück"],["u","Umsatz"],["gs","Gewinn/Stück"],["m","Marge"],["flop","Flops"]];
+  function eur(n,d){ return (n==null?"–":n.toLocaleString("de-DE",{minimumFractionDigits:d==null?2:d,maximumFractionDigits:d==null?2:d})+" €"); }
+  function renderGeld(){
+    var V=state.verdienst; var hero=$("g-hero"), f=$("g-facts"), c=$("g-cards"), note=$("g-note");
+    hero.textContent=""; f.textContent=""; c.textContent=""; note.textContent="";
+    [].forEach.call(document.querySelectorAll("#g-per button"),function(b){ b.setAttribute("aria-pressed",String(b.getAttribute("data-p")===gState.p)); });
+    if(!V||!V[gState.p]){ c.appendChild(el("div","note","Noch keine Auswertung gespeichert.")); $("g-detail").hidden=true; return; }
+    var P=V[gState.p], S=P.sum, it=P.items||[];
+    var d=function(x){ var a=x.split("-"); return a[2]+"."+a[1]+"."; };
+    hero.appendChild(el("div","k","Verdient "+d(P.von)+"–"+d(P.bis)+(S.abdeckung<100?" (hochgerechnet)":"")));
+    hero.appendChild(el("div","v",eur(S.gewinn_hochgerechnet!=null?S.gewinn_hochgerechnet:S.gewinn,0)));
+    hero.appendChild(el("div","d","Sicher belegt: "+eur(S.gewinn,0)+" bei "+S.abdeckung+" % des Umsatzes mit bekanntem Einkaufspreis"));
+    fact(f, eur(S.umsatz,0), "Umsatz (brutto)");
+    fact(f, String(S.stueck), "Stück verkauft");
+    fact(f, S.marge==null?"–":S.marge+" %", "Marge (netto)");
+    var bek=it.filter(function(x){return x.g!=null;});
+    var top=bek.slice().sort(function(a,b){return b.g-a.g;})[0];
+    var topS=it.slice().sort(function(a,b){return b.s-a.s;})[0];
+    var flop=bek.filter(function(x){return x.f>0;}).sort(function(a,b){return a.gs-b.gs;})[0];
+    function card(cls,l,n,dd){ var k=el("div","gcard "+cls); k.appendChild(el("div","gl",l)); k.appendChild(el("div","gn",n)); if(dd) k.appendChild(el("div","gd",dd)); c.appendChild(k); }
+    if(top) card("top","Top-Produkt nach Gewinn",top.n, top.s+" Stück · "+eur(top.g)+" Gewinn · "+eur(top.gs)+" je Stück");
+    if(topS && (!top || topS.n!==top.n)) card("top","Meistverkauft",topS.n, topS.s+" Stück · "+eur(topS.u)+" Umsatz");
+    if(flop) card("flop","Schwächster Gewinn je Stück",flop.n, eur(flop.gs)+" je Stück"+(flop.m!=null?" · Marge "+flop.m+" %":"")+(flop.gs<0?" · Verlust: Preis erhöhen oder auslisten":""));
+    var V13=V.q13; if(V13){ var lahm=V13.items.filter(function(x){return x.f>0 && x.s<=3;}).sort(function(a,b){return a.s-b.s;}).slice(0,4).map(function(x){return x.n+" ("+x.s+")";});
+      if(lahm.length) card("hint","Verzichten? Kaum verkauft in 13 Wochen",lahm.join(", "),"Diese Fächer könnten mit Rennern belegt werden."); }
+    note.textContent="Gewinn = Umsatz ohne MwSt minus Einkaufspreis (netto) und Pfand, laut Lexware-Belegen. "+(V.stand?"Stand: "+V.stand+".":"");
+    $("g-more").textContent=gState.open?"Details ausblenden":"Details zu allen Produkten";
+    $("g-detail").hidden=!gState.open; if(!gState.open) return;
+    var srt=$("g-sort"); srt.textContent="";
+    SORTS.forEach(function(o){ var b=el("button","chip",o[1]); b.type="button"; b.setAttribute("aria-pressed",String(gState.sort===o[0]));
+      b.addEventListener("click",function(){ gState.sort=o[0]; renderGeld(); }); srt.appendChild(b); });
+    var k=gState.sort, arr=it.slice();
+    if(k==="flop") arr=arr.filter(function(x){return x.g!=null;}).sort(function(a,b){return a.gs-b.gs;});
+    else arr.sort(function(a,b){ var A=a[k],B=b[k]; if(A==null) return 1; if(B==null) return -1; return B-A; });
+    var list=$("g-list"); list.textContent="";
+    arr.forEach(function(x,i){ var r=el("div","prow"); var n=el("div","pn"); n.appendChild(el("span","rank",(i+1)+".")); n.appendChild(document.createTextNode(" "+x.n)); r.appendChild(n);
+      var main = k==="s"? x.s+" St." : k==="u"? eur(x.u) : k==="gs"||k==="flop"? eur(x.gs) : k==="m"? (x.m==null?"–":x.m+" %") : eur(x.g);
+      var v=el("div","pv"+((x.g!=null&&x.g<0)?" neg":""),main); r.appendChild(v);
+      r.appendChild(el("div","pd", x.s+" Stück · Umsatz "+eur(x.u)+" · "+(x.g==null?"Einkaufspreis fehlt noch":"Gewinn "+eur(x.g)+" ("+eur(x.gs)+"/Stück, Marge "+x.m+" %) · EK "+eur(x.ek,3))+(x.f>0?"":" · nicht mehr im Automaten")));
+      list.appendChild(r); });
+  }
+  [].forEach.call(document.querySelectorAll("#g-per button"),function(b){ b.addEventListener("click",function(){ gState.p=b.getAttribute("data-p"); renderGeld(); }); });
+  $("g-more").addEventListener("click",function(){ gState.open=!gState.open; renderGeld(); });
   function lockView(msg){
     clearTimeout(timer); setStatus("");
-    document.querySelector(".tabs").hidden=true; $("view-tagebuch").hidden=true; $("view-nachfuellen").hidden=true; $("view-buch").hidden=true;
+    document.querySelector(".tabs").hidden=true; $("view-tagebuch").hidden=true; $("view-nachfuellen").hidden=true; $("view-buch").hidden=true; $("view-geld").hidden=true;
     $("cta").hidden=true; $("foot").hidden=true; gate.hidden=false; errEl.textContent=msg||""; pinEl.focus();
   }
   var box=null;
