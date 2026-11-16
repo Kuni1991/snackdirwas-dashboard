@@ -2,7 +2,8 @@
 """Monatliche Verkaufsliste (Einzelaufzeichnung) für den Snackautomaten – immer gleiches Layout.
 
 Aufruf:
-  python3 tools/verkaufsliste.py <vends.json> <ust.json> <JJJJ-MM> <ziel.pdf> <vk.json> [--test] [--bis TT.MM.JJJJ]
+  python3 tools/verkaufsliste.py <vends.json> <ust.json> <JJJJ-MM> <ziel.pdf> <vk.json> [--test] [--von TT.MM.JJJJ] [--bis TT.MM.JJJJ]
+  --von: erster Tag, falls der Monatsanfang schon über eine frühere Leerungs-Buchung in Lexware erfasst ist.
 
 vends.json : Liste aus Vendon /rest/head/stats/vends (Felder transaction_id, datetime, selection,
              name, quantity, price, vat, payment_method) – alle Verkäufe des Monats.
@@ -36,12 +37,13 @@ def e(x):
 
 
 def main():
-    a = [x for x in sys.argv[1:] if not x.startswith("--")]
+    a = [x for i, x in enumerate(sys.argv[1:], 1) if not x.startswith("--") and sys.argv[i - 1] not in ("--von", "--bis")]
     vends_p, ust_p, monat, out_pdf, out_vk = a[:5]
     test = "--test" in sys.argv
     bis_arg = sys.argv[sys.argv.index("--bis") + 1] if "--bis" in sys.argv else None
+    von_arg = sys.argv[sys.argv.index("--von") + 1] if "--von" in sys.argv else None
     J, M = map(int, monat.split("-"))
-    von_d = datetime.date(J, M, 1)
+    von_d = datetime.datetime.strptime(von_arg, "%d.%m.%Y").date() if von_arg else datetime.date(J, M, 1)
     bis_d = (datetime.date(J + (M == 12), M % 12 + 1, 1) - datetime.timedelta(days=1)) if not bis_arg else datetime.datetime.strptime(bis_arg, "%d.%m.%Y").date()
     von, bis = von_d.strftime("%d.%m.%Y"), bis_d.strftime("%d.%m.%Y")
     beleg = f"{M:02d}-{J}"
