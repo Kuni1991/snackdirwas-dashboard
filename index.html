@@ -146,6 +146,11 @@ h1{font-family:var(--display);font-weight:800;font-size:clamp(2.6rem,11vw,4rem);
 .krow .kt{font-weight:600} .krow .kd{color:var(--muted);font-size:.86rem;margin-top:3px}
 .krow .kv{font-family:var(--display);font-weight:700;font-size:1.25rem;white-space:nowrap}
 .tabs{display:grid;grid-template-columns:repeat(4,1fr)}
+.fl{display:block;font-size:.85rem;margin:14px 0 4px}.fin{width:100%;box-sizing:border-box;padding:10px;font-size:1rem;border:1px solid #ccc;border-radius:8px}
+.fgo{display:block;width:100%;margin-top:10px;padding:14px;font-size:1rem;font-weight:600;border:0;border-radius:10px;background:#1a7f37;color:#fff}
+.fno{display:block;width:100%;margin-top:8px;padding:12px;font-size:1rem;border:0;border-radius:10px;background:#ddd;color:#222}
+.fdlg{position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;z-index:50}.fdlg[hidden]{display:none}
+.fdlg>div{background:#fff;color:#222;border-radius:14px;padding:18px;margin:16px;max-width:360px}
 .tab{font-size:.8rem;white-space:nowrap;padding-left:2px;padding-right:2px;min-width:0}
 .seg{display:flex;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:var(--surface)}
 .seg button{flex:1;font:600 .9rem/1 Figtree,system-ui,sans-serif;padding:11px 6px;border:0;background:none;color:var(--ink)}
@@ -252,6 +257,22 @@ h1{font-family:var(--display);font-weight:800;font-size:clamp(2.6rem,11vw,4rem);
     <button class="more" id="b-more" type="button"></button>
   </section>
 
+  <section class="view" id="view-freigabe" hidden>
+    <div class="ghero" id="f-hero"></div>
+    <div class="facts" id="f-facts"></div>
+    <div class="gcards" id="f-hints"></div>
+    <div class="stand" id="f-note"></div>
+    <div id="f-act">
+      <label class="fl" for="f-name">Dein Name</label>
+      <input id="f-name" class="fin" type="text" autocomplete="name" placeholder="Name">
+      <button class="fgo" id="f-go" type="button">Freigeben</button>
+      <div class="vmsg" id="f-msg" role="status"></div>
+    </div>
+    <h2 class="sect">Alle Produkte im Monat</h2>
+    <div class="list" id="f-list"></div>
+    <div class="fdlg" id="f-d1" hidden><div><b>Liste geprüft?</b><p id="f-d1t"></p><button class="fgo" id="f-y1" type="button">Weiter</button><button class="fno" id="f-n1" type="button">Abbrechen</button></div></div>
+    <div class="fdlg" id="f-d2" hidden><div><b>Möchtest du wirklich freigeben und die Buchung in Lexoffice automatisiert durchführen?</b><button class="fgo" id="f-y2" type="button">Ja, freigeben</button><button class="fno" id="f-n2" type="button">Nein</button></div></div>
+  </section>
   <section class="view" id="view-geld" hidden>
     <div class="seg" id="g-per" role="group" aria-label="Zeitraum">
       <button type="button" data-p="woche" aria-pressed="true">Diese Woche</button>
@@ -461,14 +482,14 @@ h1{font-family:var(--display);font-weight:800;font-size:clamp(2.6rem,11vw,4rem);
   }
 
   /* ---------- Umschalter ---------- */
-  var VIEWS={tagebuch:"Unternehmens­tagebuch",nachfuellen:"Nachfüllen",buch:"Buchhaltung",geld:"Verdienst"};
+  var VIEWS={tagebuch:"Unternehmens­tagebuch",nachfuellen:"Nachfüllen",buch:"Buchhaltung",geld:"Verdienst",freigabe:"Verkaufsliste freigeben"};
   function show(view){
     if(!VIEWS[view]) view="tagebuch";
-    Object.keys(VIEWS).forEach(function(v){ $("view-"+v).hidden = v!==view; $("tab-"+v).setAttribute("aria-selected", String(v===view)); });
+    Object.keys(VIEWS).forEach(function(v){ $("view-"+v).hidden = v!==view; var t=$("tab-"+v); if(t) t.setAttribute("aria-selected", String(v===view)); });
     $("title").textContent = VIEWS[view];
   }
   function route(){ show((location.hash||"").slice(1)); }
-  Object.keys(VIEWS).forEach(function(v){ $("tab-"+v).addEventListener("click", function(){ location.hash="#"+v; show(v); }); });
+  Object.keys(VIEWS).forEach(function(v){ if($("tab-"+v)) $("tab-"+v).addEventListener("click", function(){ location.hash="#"+v; show(v); }); });
   window.addEventListener("hashchange", route); route();
   $("b-search").addEventListener("input", function(e){ state.bQuery=e.target.value; renderBestand(); });
   $("t-search").addEventListener("input", function(e){ state.tQuery=e.target.value; renderTagebuch(); });
@@ -547,10 +568,10 @@ h1{font-family:var(--display);font-weight:800;font-size:clamp(2.6rem,11vw,4rem);
     state.stand=String(b.stand||"");
     var arr=Array.isArray(d.tagebuch)? d.tagebuch.slice():[];
     arr.sort(function(a,c){ var x=String(c.datum||"").localeCompare(String(a.datum||"")); return x!==0? x : num(c.pos)-num(a.pos); });
-    state.entries=arr; state.buch=d.buch||null; state.verdienst=d.verdienst||null; state.loaded.b=true; state.loaded.t=true;
+    state.entries=arr; state.buch=d.buch||null; state.verdienst=d.verdienst||null; state.vk=d.verkaufsliste||null; state.loaded.b=true; state.loaded.t=true;
     gate.hidden=true; $("cta").hidden=false; $("foot").hidden=false;
     document.querySelector(".tabs").hidden=false; route();
-    renderBestand(); renderTagebuch(); renderBuch(); renderGeld(); done();
+    renderBestand(); renderTagebuch(); renderBuch(); renderGeld(); renderFrei(); done();
   }
   function renderBuch(){
     var k=state.buch, f=$("k-facts"), l=$("k-list"); f.textContent=""; l.textContent="";
@@ -563,6 +584,38 @@ h1{font-family:var(--display);font-weight:800;font-size:clamp(2.6rem,11vw,4rem);
       r.appendChild(a); if(x.w) r.appendChild(el("div","kv",x.w)); l.appendChild(r);
     });
   }
+  function renderFrei(){
+    var V=state.vk, hero=$("f-hero"), f=$("f-facts"), h=$("f-hints"), l=$("f-list"), note=$("f-note");
+    hero.textContent=""; f.textContent=""; h.textContent=""; l.textContent=""; note.textContent="";
+    if(!V){ hero.appendChild(el("div","k","Zurzeit liegt keine Verkaufsliste zur Freigabe vor.")); $("f-act").hidden=true; return; }
+    hero.appendChild(el("div","k","Verkaufsliste "+V.label+" ("+V.von+" – "+V.bis+")"));
+    hero.appendChild(el("div","v",eur(V.summen.ges.b)));
+    hero.appendChild(el("div","d",V.summen.ges.s+" Verkäufe · erstellt "+V.erstellt));
+    fact(f, eur(V.summen["7"].b), "7 % brutto (netto "+eur(V.summen["7"].n)+")");
+    fact(f, eur(V.summen["19"].b), "19 % brutto (netto "+eur(V.summen["19"].n)+")");
+    (V.hinweise||[]).forEach(function(x){ var k=el("div","gcard hint"); k.appendChild(el("div","gl","Bitte prüfen")); k.appendChild(el("div","gd",x)); h.appendChild(k); });
+    var st=V.status||"offen";
+    note.textContent = st==="offen" ? "Buchung in Lexware: Einnahme "+V.beleg+", Kontakt „Sammlekunde, Allgemeiner“, Zahlung Kasse, Anlage: Einzelaufzeichnung aller Verkäufe (PDF)." :
+      st==="freigegeben" ? "Freigegeben von "+(V.von_wem||"?")+" – die Buchung wird innerhalb der nächsten Stunde angelegt." : "Gebucht in Lexware am "+(V.gebucht||"")+".";
+    $("f-act").hidden = st!=="offen";
+    try{ $("f-name").value=localStorage.getItem("sdw-name")||""; }catch(e){}
+    (V.produkte||[]).forEach(function(x){ var r=el("div","prow"); r.appendChild(el("div","pn",x[0])); r.appendChild(el("div","pv",eur(x[2]))); r.appendChild(el("div","pd",x[1]+" Stück · "+x[3]+" % USt")); l.appendChild(r); });
+  }
+  (function(){
+    var FORM_URL="https://docs.google.com/forms/d/e/1FAIpQLSdyv8eSRf5cG0c4MoMQnV408WldEN538lE_WSrCdPCyiw8Z2A/formResponse";
+    function msg(t,c){ var m=$("f-msg"); m.textContent=t; m.className="vmsg"+(c?" "+c:""); }
+    $("f-go").addEventListener("click",function(){ var n=$("f-name").value.trim(); if(!n){ msg("Bitte deinen Namen eintragen.","err"); return; }
+      var V=state.vk; $("f-d1t").textContent=V.label+": "+eur(V.summen.ges.b)+" brutto (7 %: "+eur(V.summen["7"].b)+" · 19 %: "+eur(V.summen["19"].b)+")."; $("f-d1").hidden=false; });
+    $("f-n1").addEventListener("click",function(){ $("f-d1").hidden=true; });
+    $("f-y1").addEventListener("click",function(){ $("f-d1").hidden=true; $("f-d2").hidden=false; });
+    $("f-n2").addEventListener("click",function(){ $("f-d2").hidden=true; });
+    $("f-y2").addEventListener("click",async function(){ $("f-d2").hidden=true; var V=state.vk, n=$("f-name").value.trim();
+      try{ localStorage.setItem("sdw-name",n); }catch(e){}
+      var body=new URLSearchParams(); body.append("entry.1005782766","Tagebuch – Reinigung, Einkauf, Geld, Störung, Sonstiges");
+      body.append("entry.1068141768","FREIGABE Verkaufsliste "+V.monat+" | Summe "+V.summen.ges.b.toFixed(2)+" | Kennung "+V.kennung); body.append("entry.633500849",n);
+      try{ await fetch(FORM_URL,{method:"POST",mode:"no-cors",body:body}); $("f-act").hidden=true; $("f-note").textContent="✅ Danke, "+n+"! Freigabe ist angekommen. Die Buchung wird innerhalb der nächsten Stunde in Lexware angelegt.";
+      }catch(e){ msg("Senden hat nicht geklappt. Bitte Internet prüfen und nochmal tippen.","err"); } });
+  })();
   var gState={p:"woche",sort:"g",open:false};
   var SORTS=[["g","Gewinn"],["s","Stück"],["u","Umsatz"],["gs","Gewinn/Stück"],["m","Marge"],["flop","Flops"]];
   function eur(n,d){ return (n==null?"–":n.toLocaleString("de-DE",{minimumFractionDigits:d==null?2:d,maximumFractionDigits:d==null?2:d})+" €"); }
@@ -609,7 +662,7 @@ h1{font-family:var(--display);font-weight:800;font-size:clamp(2.6rem,11vw,4rem);
   $("g-more").addEventListener("click",function(){ gState.open=!gState.open; renderGeld(); });
   function lockView(msg){
     clearTimeout(timer); setStatus("");
-    document.querySelector(".tabs").hidden=true; $("view-tagebuch").hidden=true; $("view-nachfuellen").hidden=true; $("view-buch").hidden=true; $("view-geld").hidden=true;
+    document.querySelector(".tabs").hidden=true; $("view-tagebuch").hidden=true; $("view-nachfuellen").hidden=true; $("view-buch").hidden=true; $("view-geld").hidden=true; $("view-freigabe").hidden=true;
     $("cta").hidden=true; $("foot").hidden=true; gate.hidden=false; errEl.textContent=msg||""; pinEl.focus();
   }
   var box=null;
